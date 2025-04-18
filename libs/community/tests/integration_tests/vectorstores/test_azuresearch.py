@@ -87,3 +87,58 @@ def test_semantic_hybrid_search() -> None:
     time.sleep(1)
     res = vector_store.semantic_hybrid_search(query="What's Azure Search?", k=3)
     assert len(res) == 3
+
+
+def similarity_search_test_with_vectorizable_text_query() -> None:
+    """Test end to end construction and search with VecotorizedTextQuery."""
+    # Create Embeddings
+    embeddings: OpenAIEmbeddings = OpenAIEmbeddings(model=model, chunk_size=1)
+    # Create Vector store
+    vector_store: AzureSearch = AzureSearch(
+        azure_search_endpoint=vector_store_address,
+        azure_search_key=vector_store_password,
+        azure_ad_access_token=access_token,
+        index_name=index_name,
+        embedding_function=embeddings.embed_query,
+        use_vectorizable_text_query=True,
+    )
+    # Add texts to vector store and perform a similarity search
+    vector_store.add_texts(
+        ["Test 1", "Test 2", "Test 3"],
+        [
+            {"title": "Title 1", "any_metadata": "Metadata 1"},
+            {"title": "Title 2", "any_metadata": "Metadata 2"},
+            {"title": "Title 3", "any_metadata": "Metadata 3"},
+        ],
+    )
+    time.sleep(1)
+    res = vector_store.similarity_search(query="Test 1", k=3)
+    assert len(res) == 3
+
+
+def test_semantic_hybrid_search_with_vectorizable_text_query() -> None:
+    """Test end to end construction and search with VecotorizedTextQuery."""
+    # Create Embeddings
+    embeddings: OpenAIEmbeddings = OpenAIEmbeddings(model=model, chunk_size=1)
+    # Create Vector store
+    vector_store: AzureSearch = AzureSearch(
+        azure_search_endpoint=vector_store_address,
+        azure_search_key=vector_store_password,
+        azure_ad_access_token=access_token,
+        index_name=index_name,
+        embedding_function=embeddings.embed_query,
+        semantic_configuration_name="default",
+        use_vectorizable_text_query=True,
+    )
+    # Add texts to vector store and perform a semantic hybrid search
+    vector_store.add_texts(
+        ["Test 1", "Test 2", "Test 3"],
+        [
+            {"title": "Title 1", "any_metadata": "Metadata 1"},
+            {"title": "Title 2", "any_metadata": "Metadata 2"},
+            {"title": "Title 3", "any_metadata": "Metadata 3"},
+        ],
+    )
+    time.sleep(1)
+    res = vector_store.semantic_hybrid_search(query="What's Azure Search?", k=3)
+    assert len(res) == 3

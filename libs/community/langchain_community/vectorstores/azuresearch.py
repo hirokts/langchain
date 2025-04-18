@@ -307,6 +307,7 @@ class AzureSearch(VectorStore):
         azure_ad_access_token: Optional[str] = None,
         azure_credential: Optional[TokenCredential] = None,
         azure_async_credential: Optional[AsyncTokenCredential] = None,
+        use_vectorizable_text_query: bool = False,
         **kwargs: Any,
     ):
         try:
@@ -409,6 +410,7 @@ class AzureSearch(VectorStore):
         self._default_fields = default_fields
         self._user_agent = user_agent
         self._cors_options = cors_options
+        self._use_vectorizable_text_query = use_vectorizable_text_query
 
     def __del__(self) -> None:
         # Close the sync client
@@ -1115,17 +1117,24 @@ class AzureSearch(VectorStore):
         Returns:
             Search items
         """
-        from azure.search.documents.models import VectorizedQuery
+        from azure.search.documents.models import VectorizedQuery, VectorizableTextQuery
+
+        if self._use_vectorizable_text_query:
+            vector_query = VectorizableTextQuery(
+                text=text_query,
+                k_nearest_neighbors=k,
+                fields=FIELDS_CONTENT_VECTOR,
+            )
+        else:
+            vector_query = VectorizedQuery(
+                vector=np.array(embedding, dtype=np.float32).tolist(),
+                k_nearest_neighbors=k,
+                fields=FIELDS_CONTENT_VECTOR,
+            )
 
         return self.client.search(
             search_text=text_query,
-            vector_queries=[
-                VectorizedQuery(
-                    vector=np.array(embedding, dtype=np.float32).tolist(),
-                    k_nearest_neighbors=k,
-                    fields=FIELDS_CONTENT_VECTOR,
-                )
-            ],
+            vector_queries=[vector_query],
             filter=filters,
             top=k,
             **kwargs,
@@ -1151,17 +1160,24 @@ class AzureSearch(VectorStore):
         Returns:
             Search items
         """
-        from azure.search.documents.models import VectorizedQuery
+        from azure.search.documents.models import VectorizedQuery, VectorizableTextQuery
+
+        if self._use_vectorizable_text_query:
+            vector_query = VectorizableTextQuery(
+                text=text_query,
+                k_nearest_neighbors=k,
+                fields=FIELDS_CONTENT_VECTOR,
+            )
+        else:
+            vector_query = VectorizedQuery(
+                vector=np.array(embedding, dtype=np.float32).tolist(),
+                k_nearest_neighbors=k,
+                fields=FIELDS_CONTENT_VECTOR,
+            )
 
         return await self.async_client.search(
             search_text=text_query,
-            vector_queries=[
-                VectorizedQuery(
-                    vector=np.array(embedding, dtype=np.float32).tolist(),
-                    k_nearest_neighbors=k,
-                    fields=FIELDS_CONTENT_VECTOR,
-                )
-            ],
+            vector_queries=[vector_query],
             filter=filters,
             top=k,
             **kwargs,
@@ -1296,17 +1312,24 @@ class AzureSearch(VectorStore):
         Returns:
             List of Documents most similar to the query and score for each
         """
-        from azure.search.documents.models import VectorizedQuery
+        from azure.search.documents.models import VectorizedQuery, VectorizableTextQuery
+
+        if self._use_vectorizable_text_query:
+            vector_query = VectorizableTextQuery(
+                text=query,
+                k_nearest_neighbors=k,
+                fields=FIELDS_CONTENT_VECTOR,
+            )
+        else:
+            vector_query = VectorizedQuery(
+                vector=np.array(self.embed_query(query), dtype=np.float32).tolist(),
+                k_nearest_neighbors=k,
+                fields=FIELDS_CONTENT_VECTOR,
+            )
 
         results = self.client.search(
             search_text=query,
-            vector_queries=[
-                VectorizedQuery(
-                    vector=np.array(self.embed_query(query), dtype=np.float32).tolist(),
-                    k_nearest_neighbors=k,
-                    fields=FIELDS_CONTENT_VECTOR,
-                )
-            ],
+            vector_queries=[vector_query],
             filter=filters,
             query_type="semantic",
             semantic_configuration_name=self.semantic_configuration_name,
@@ -1383,18 +1406,25 @@ class AzureSearch(VectorStore):
         Returns:
             List of Documents most similar to the query and score for each
         """
-        from azure.search.documents.models import VectorizedQuery
+        from azure.search.documents.models import VectorizedQuery, VectorizableTextQuery
 
-        vector = await self._aembed_query(query)
+        if self._use_vectorizable_text_query:
+            vector_query = VectorizableTextQuery(
+                text=query,
+                k_nearest_neighbors=k,
+                fields=FIELDS_CONTENT_VECTOR,
+            )
+        else:
+            vector = await self._aembed_query(query)
+            vector_query = VectorizedQuery(
+                vector=np.array(vector, dtype=np.float32).tolist(),
+                k_nearest_neighbors=k,
+                fields=FIELDS_CONTENT_VECTOR,
+            )
+
         results = await self.async_client.search(
             search_text=query,
-            vector_queries=[
-                VectorizedQuery(
-                    vector=np.array(vector, dtype=np.float32).tolist(),
-                    k_nearest_neighbors=k,
-                    fields=FIELDS_CONTENT_VECTOR,
-                )
-            ],
+            vector_queries=[vector_query],
             filter=filters,
             query_type="semantic",
             semantic_configuration_name=self.semantic_configuration_name,
